@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тирлист игр компании</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700;800&display=swap" rel="stylesheet">
+<style id="css">
+/* layout: header with autosave status; seven tier rows (colored letter column + wrapping image tiles); pool of unplaced games with upload + Steam import below; formula and import sheets open over the page */
+:root {
+  --bg: #eceff4;
+  --surface: #ffffff;
+  --surface-2: #e2e6ee;
+  --ink: #1a1e29;
+  --muted: #586074;
+  --line: #cfd5e0;
+  --accent: #3451d1;
+  --accent-ink: #ffffff;
+  --danger: #c0262d;
+  --ok: #2f9e44;
+  --scrim: rgba(16, 20, 30, .55);
+  --t-s: #ff7f7f;
+  --t-a: #ffbf7f;
+  --t-b: #ffdf7f;
+  --t-c: #f4f47a;
+  --t-d: #bff27f;
+  --t-e: #7fe6b0;
+  --t-f: #8fd3ff;
+  --tier-ink: #1a1e29;
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 10px;
+  --tile: 96px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #13161d;
+    --surface: #1c2029;
+    --surface-2: #262b37;
+    --ink: #e7e9ef;
+    --muted: #9ba2b4;
+    --line: #333949;
+    --accent: #8196ff;
+    --accent-ink: #0d1120;
+    --danger: #ff6b70;
+    --ok: #51cf66;
+    --scrim: rgba(0, 0, 0, .65);
+    --t-s: #ee7676;
+    --t-a: #eeb173;
+    --t-b: #eecd73;
+    --t-c: #e4e470;
+    --t-d: #b0e276;
+    --t-e: #74d6a3;
+    --t-f: #7fc3ec;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #13161d;
+  --surface: #1c2029;
+  --surface-2: #262b37;
+  --ink: #e7e9ef;
+  --muted: #9ba2b4;
+  --line: #333949;
+  --accent: #8196ff;
+  --accent-ink: #0d1120;
+  --danger: #ff6b70;
+  --ok: #51cf66;
+  --scrim: rgba(0, 0, 0, .65);
+  --t-s: #ee7676;
+  --t-a: #eeb173;
+  --t-b: #eecd73;
+  --t-c: #e4e470;
+  --t-d: #b0e276;
+  --t-e: #74d6a3;
+  --t-f: #7fc3ec;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h2 { font-size: 17px; font-weight: 700; }
+a { color: var(--accent); }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+
+.top { display: grid; gap: 6px; }
+.title-block { display: grid; gap: 2px; min-width: 0; }
+.title-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.title-input {
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 4vw, 32px);
+  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 2px 6px; margin-left: -7px;
+  width: 100%; min-width: 0;
+}
+.title-input:hover { border-color: var(--line); }
+.title-input:focus { border-color: var(--accent); outline: none; background: var(--surface); }
+.savebar { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); min-height: 34px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.dirty { background: #e8590c; }
+.dot.bad { background: var(--danger); }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-weight: 600; font-size: 14px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn.danger { color: var(--danger); }
+.btn.danger.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+/* tiers */
+.tiers { display: grid; gap: 6px; }
+.tier { display: grid; grid-template-columns: 92px 1fr; min-height: calc(var(--tile) + 46px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.tier-label { display: grid; place-items: center; align-content: center; gap: 4px; color: var(--tier-ink); font-family: var(--font-display); font-weight: 800; font-size: 32px; line-height: 1; padding: 4px; }
+.tier-label small { font-family: var(--font-body); font-size: 11.5px; font-weight: 700; opacity: .8; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tier[data-t="S"] .tier-label { background: var(--t-s); }
+.tier[data-t="A"] .tier-label { background: var(--t-a); }
+.tier[data-t="B"] .tier-label { background: var(--t-b); }
+.tier[data-t="C"] .tier-label { background: var(--t-c); }
+.tier[data-t="D"] .tier-label { background: var(--t-d); }
+.tier[data-t="E"] .tier-label { background: var(--t-e); }
+.tier[data-t="F"] .tier-label { background: var(--t-f); }
+.tier-cards { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; align-content: flex-start; }
+
+/* tiles */
+.tile {
+  position: relative; display: grid; grid-template-rows: var(--tile) auto; width: var(--tile);
+  padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer;
+  background: var(--surface-2); text-align: left;
+}
+.tile:hover { border-color: var(--accent); }
+.tile img, .tile .ph { width: 100%; height: var(--tile); object-fit: cover; display: block; background: var(--surface-2); }
+.tile .cap { font-size: 11.5px; font-weight: 600; line-height: 1.25; padding: 4px 6px 5px; overflow-wrap: anywhere; }
+.tile .score {
+  position: absolute; top: 4px; right: 4px; background: rgba(10, 12, 18, .78); color: #fff; font-size: 11px; font-weight: 700;
+  border-radius: 4px; padding: 1px 5px; font-variant-numeric: tabular-nums;
+}
+.tile .hover-note {
+  position: absolute; left: 0; right: 0; top: 0; height: var(--tile); display: grid; place-items: center; text-align: center;
+  background: rgba(10, 12, 18, .6); color: #fff; font-size: 12px; font-weight: 700; padding: 6px; opacity: 0;
+}
+.tile:hover .hover-note, .tile:focus-visible .hover-note { opacity: 1; }
+.tile.loading img, .tile.loading .ph { opacity: .55; }
+.ph { display: grid !important; place-items: center; padding: 6px; text-align: center; color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 11px; line-height: 1.2; overflow: hidden; overflow-wrap: anywhere; }
+.ph.h0 { background: #5b3fd1 !important; } .ph.h1 { background: #b4304f !important; } .ph.h2 { background: #1f7a6b !important; } .ph.h3 { background: #a85a12 !important; }
+.ph.h4 { background: #2f5fa8 !important; } .ph.h5 { background: #7a2f8f !important; } .ph.h6 { background: #3d6b21 !important; } .ph.h7 { background: #6b4a3a !important; }
+
+.tile-wrap { position: relative; }
+.del {
+  position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 6px; border: 0;
+  background: rgba(10, 12, 18, .78); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; display: grid; place-items: center;
+  opacity: 0;
+}
+.tile-wrap .ren { left: auto; right: 4px; font-size: 13px; }
+.tile-wrap:hover .del, .del:focus-visible { opacity: 1; }
+.del:hover { background: var(--danger); }
+.tile-wrap .ren:hover { background: var(--accent); color: var(--accent-ink); }
+@media (hover: none) { .del { opacity: .9; } }
+.img-box { width: 72px; height: 72px; border-radius: 8px; overflow: hidden; display: block; }
+.img-box img, .img-box .ph { width: 72px; height: 72px; object-fit: cover; display: block; background: var(--surface-2); font-size: 9px; }
+
+/* pool */
+.pool { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 12px; }
+.pool-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.pool-head p { margin: 0; font-size: 13px; color: var(--muted); flex-basis: 100%; }
+.pool-cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.drop {
+  width: var(--tile); min-height: calc(var(--tile) + 28px); border: 2px dashed var(--line); border-radius: 8px;
+  display: grid; place-items: center; text-align: center; padding: 8px; cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 600;
+}
+.drop:hover, .drop:focus-within { border-color: var(--accent); color: var(--accent); }
+.drop .plus { font-family: var(--font-display); font-size: 28px; line-height: 1; display: block; margin-bottom: 4px; }
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+.pool.dragging { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.pool-empty { color: var(--muted); font-size: 14px; align-self: center; }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+.note.err { color: var(--danger); }
+.note:empty { display: none; }
+
+.scale-legend { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.scale-legend span { border-radius: 6px; padding: 2px 8px; color: var(--tier-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* sheets */
+.overlay { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; padding: 16px; z-index: 10; overflow-y: auto; }
+.sheet { background: var(--surface); border-radius: 14px; width: min(520px, 100%); padding: 18px; display: grid; gap: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .3); }
+.sheet.wide { width: min(680px, 100%); }
+.sheet-head { display: grid; grid-template-columns: 72px 1fr auto; gap: 12px; align-items: center; }
+.sheet-head.plain { grid-template-columns: 1fr auto; }
+.img-pick { position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; cursor: pointer; display: block; }
+.img-pick img, .img-pick .ph { width: 72px; height: 72px; object-fit: cover; display: block; background: var(--surface-2); font-size: 9px; }
+.img-pick .swap { position: absolute; inset: auto 0 0 0; background: rgba(10, 12, 18, .7); color: #fff; font-size: 10px; font-weight: 700; text-align: center; padding: 2px 0; }
+.x { border: 0; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 6px; align-self: start; }
+.x:hover { color: var(--ink); background: var(--surface-2); }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.text { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; min-width: 0; width: 100%; }
+.text:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.text.bad { border-color: var(--danger); }
+textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+.formula-line { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; overflow-x: auto; white-space: pre; }
+.inputs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.inputs .text { text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px; }
+.result { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 44px; }
+.result .calc { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tier-pill { display: inline-grid; place-items: center; min-width: 40px; height: 40px; padding: 0 10px; border-radius: 8px; font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--tier-ink); background: var(--surface-2); }
+[data-t="S"].tier-pill, .scale-legend [data-t="S"] { background: var(--t-s); }
+[data-t="A"].tier-pill, .scale-legend [data-t="A"] { background: var(--t-a); }
+[data-t="B"].tier-pill, .scale-legend [data-t="B"] { background: var(--t-b); }
+[data-t="C"].tier-pill, .scale-legend [data-t="C"] { background: var(--t-c); }
+[data-t="D"].tier-pill, .scale-legend [data-t="D"] { background: var(--t-d); }
+[data-t="E"].tier-pill, .scale-legend [data-t="E"] { background: var(--t-e); }
+[data-t="F"].tier-pill, .scale-legend [data-t="F"] { background: var(--t-f); }
+.sheet .err { color: var(--danger); font-size: 13px; margin: 0; }
+.sheet .err:empty { display: none; }
+.sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); }
+.steps { margin: 0; padding-left: 20px; font-size: 14px; display: grid; gap: 4px; }
+.steps kbd { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.links { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; font-weight: 600; }
+.steam-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.steam-tools .text { flex: 1 1 180px; }
+.steam-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.steam-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 14px; cursor: pointer; }
+.steam-row:last-child { border-bottom: 0; }
+.steam-row.had { color: var(--muted); cursor: default; }
+.steam-row .meta { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+.board-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.board-bar .btn.primary { padding: 9px 22px; font-size: 15px; }
+.sheet.preview { width: min(1000px, 100%); }
+.preview-img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.preview-scroll { max-height: 60vh; overflow: auto; border-radius: 8px; }
+.ok-text { color: var(--ok); font-weight: 600; }
+.footer-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+
+@media (max-width: 560px) {
+  :root { --tile: 78px; }
+  .tier { grid-template-columns: 62px 1fr; }
+  .tier-label { font-size: 24px; }
+  .tier-label small { font-size: 10px; }
+  .inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="application/json" id="state">{"title":"Тирлист игр нашей компании","savedAt":null,"games":[]}</script>
+<script id="appjs">
+(() => {
+  'use strict';
+
+  const TIERS = [
+    { t: 'S', min: 8.5, label: '8,5–10' },
+    { t: 'A', min: 7.5, label: '7,5–8,5' },
+    { t: 'B', min: 6.5, label: '6,5–7,5' },
+    { t: 'C', min: 5, label: '5–6,5' },
+    { t: 'D', min: 4, label: '4–5' },
+    { t: 'E', min: 2, label: '2–4' },
+    { t: 'F', min: -Infinity, label: 'меньше 2' }
+  ];
+  const TIER_NAMES = TIERS.map((x) => x.t);
+  const DEFAULT_C = 2, DEFAULT_M = 7, MAX_RATING = 10, IMG_MAX = 220;
+  const LOCAL_KEY = 'tierlist-local-v2';
+  const app = document.getElementById('app');
+
+  /* ---------- helpers ---------- */
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const uid = () => 'g' + Math.random().toString(36).slice(2, 10);
+  const fmt = (x, d = 2) => (x == null || !isFinite(x)) ? '—' : Number(x).toFixed(d).replace('.', ',');
+  const fmtShort = (x) => (x == null || !isFinite(x)) ? '' : String(Math.round(x * 1000) / 1000).replace('.', ',');
+  function parseNum(v) {
+    const t = String(v == null ? '' : v).trim().replace(',', '.');
+    if (t === '') return null;
+    const x = Number(t);
+    return isFinite(x) ? x : NaN;
+  }
+  function tierFor(score) {
+    for (const T of TIERS) if (score >= T.min - 1e-9) return T.t;
+    return 'F';
+  }
+  const scoreOf = (C, m, sum, n) => (C * m + sum) / (C + n);
+  function hue(name) {
+    let h = 0;
+    for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return h % 8;
+  }
+  const sig = (st) => JSON.stringify({ title: st.title, games: st.games });
+
+  /* ---------- state ---------- */
+  function normalize(raw) {
+    const st = raw && typeof raw === 'object' ? raw : {};
+    const games = Array.isArray(st.games) ? st.games : [];
+    return {
+      title: typeof st.title === 'string' ? st.title : 'Тирлист игр нашей компании',
+      savedAt: st.savedAt || null,
+      games: games.filter((g) => g && g.id).map((g) => {
+        const num = (v) => (v != null && v !== '' && isFinite(Number(v))) ? Number(v) : null;
+        const o = {
+          id: String(g.id),
+          name: String(g.name || ''),
+          img: typeof g.img === 'string' && /^(data:image\/|https:\/\/)/.test(g.img) ? g.img : null,
+          appid: /^\d+$/.test(String(g.appid || '')) ? Number(g.appid) : null,
+          cap: typeof g.cap === 'string' && /^[\w./-]+$/.test(g.cap) ? g.cap : null,
+          C: num(g.C) == null ? DEFAULT_C : num(g.C),
+          m: num(g.m) == null ? DEFAULT_M : num(g.m),
+          sum: num(g.sum),
+          n: num(g.n),
+          score: num(g.score),
+          tier: null
+        };
+        if (TIER_NAMES.indexOf(g.tier) >= 0 && o.score != null) o.tier = tierFor(o.score);
+        return o;
+      })
+    };
+  }
+
+  let saved;
+  try { saved = normalize(JSON.parse(document.getElementById('state').textContent)); }
+  catch (e) { saved = normalize({}); }
+  let state = clone(saved);
+
+  const ui = {
+    open: null, steam: null, naming: null, armed: null, undo: null,
+    note: '', noteErr: false,
+    artifact: undefined, downloads: undefined, saving: false, saveMsg: '', preview: null, png: null,
+    localStatus: 'loading', loading: new Set()
+  };
+  const gameById = (id) => state.games.find((g) => g.id === id) || null;
+
+  /* ---------- local autosave (IndexedDB, localStorage as fallback) ---------- */
+  const local = (() => {
+    let dbp = null;
+    function db() {
+      if (!dbp) {
+        dbp = new Promise((res, rej) => {
+          try {
+            const r = indexedDB.open('tierlist', 1);
+            r.onupgradeneeded = () => r.result.createObjectStore('kv');
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+          } catch (e) { rej(e); }
+        });
+      }
+      return dbp;
+    }
+    const idbGet = () => db().then((d) => new Promise((res, rej) => {
+      const q = d.transaction('kv', 'readonly').objectStore('kv').get(LOCAL_KEY);
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => rej(q.error);
+    }));
+    const idbSet = (v) => db().then((d) => new Promise((res, rej) => {
+      const tx = d.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(v, LOCAL_KEY);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error);
+    }));
+    const lsGet = () => { try { const r = localStorage.getItem(LOCAL_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } };
+    const lsSet = (v) => { localStorage.setItem(LOCAL_KEY, JSON.stringify(v)); };
+    const newest = (a, b) => (!a ? b : !b ? a : ((b.at || 0) > (a.at || 0) ? b : a));
+    return {
+      get: () => idbGet().then((v) => newest(v, lsGet()), () => lsGet()),
+      set: (v) => idbSet(v).catch(() => lsSet(v)),
+      setSync: (v) => { try { lsSet(v); } catch (e) { /* quota */ } }
+    };
+  })();
+
+  let saveTimer = null;
+  function changed() {
+    lastChange = Date.now();
+    ui.saveMsg = '';
+    ui.localStatus = 'pending';
+    renderSaveBar();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushLocal, 120);
+  }
+  function flushLocal() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    return local.set({ state: JSON.parse(JSON.stringify(state)), at: lastChange || Date.now() }).then(
+      () => { ui.localStatus = 'ok'; renderSaveBar(); },
+      () => { ui.localStatus = 'error'; renderSaveBar(); }
+    );
+  }
+  let lastChange = 0;
+  function emergencySave() {
+    if (!saveTimer && ui.localStatus !== 'pending') return;
+    local.setSync({ state: JSON.parse(JSON.stringify(state)), at: lastChange || Date.now() });
+    flushLocal();
+  }
+  window.addEventListener('pagehide', emergencySave);
+  window.addEventListener('beforeunload', emergencySave);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') emergencySave(); });
+
+  /* ---------- saving to the Claude page ---------- */
+  const HEAD = [
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<title>Тирлист игр компании</title>',
+    '<link rel="preconnect" href="https://fonts.googleapis.com">',
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+    '<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700;800&display=swap" rel="stylesheet">'
+  ].join('\n');
+
+  function buildDocument(st) {
+    const css = document.getElementById('css').textContent;
+    const js = document.getElementById('appjs').textContent;
+    const json = JSON.stringify(st).replace(/</g, '\\u003c');
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n' + HEAD +
+      '\n<style id="css">' + css + '</style>\n</head>\n<body>\n<div id="app"></div>\n' +
+      '<script type="application/json" id="state">' + json + '<\/script>\n' +
+      '<script id="appjs">' + js + '<\/script>\n</body>\n</html>\n';
+  }
+
+  function connectArtifact() {
+    const c = window.claude;
+    if (!c || typeof c.use !== 'function') { ui.artifact = null; renderSaveBar(); return; }
+    Promise.resolve(c.use('artifact')).then((a) => { ui.artifact = a || null; renderSaveBar(); }, () => { ui.artifact = null; renderSaveBar(); });
+    Promise.resolve(c.use('downloads')).then((d) => { ui.downloads = d || null; }, () => { ui.downloads = null; });
+  }
+  const inClaude = () => !!(window.claude && typeof window.claude.use === 'function');
+
+  function saveToPage() {
+    if (!ui.artifact || ui.saving) return;
+    ui.saving = true; ui.saveMsg = ''; renderSaveBar();
+    const st = clone(state);
+    st.savedAt = new Date().toISOString();
+    const done = () => Promise.resolve(ui.artifact.publish(buildDocument(st)));
+    flushLocal().then(done).then(() => {
+      saved = st; state.savedAt = st.savedAt;
+      ui.saving = false; ui.saveMsg = 'Сохранено в Claude';
+      renderSaveBar();
+    }, (err) => {
+      ui.saving = false;
+      const code = String((err && (err.code || err.name || err.message)) || '');
+      if (/conflict/i.test(code)) ui.saveMsg = 'Кто-то сохранил раньше вас, страница обновится до его версии.';
+      else if (/not_granted|not_writer/i.test(code)) ui.saveMsg = 'У вас нет прав сохранять эту страницу в Claude.';
+      else ui.saveMsg = 'Не получилось сохранить в Claude. В этом браузере всё сохранено.';
+      renderSaveBar();
+    });
+  }
+
+  /* ---------- images ---------- */
+  function drawToData(img) {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    const k = Math.min(1, IMG_MAX / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+    const cv = document.createElement('canvas');
+    cv.width = cw; cv.height = ch;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#20242e';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    let data = cv.toDataURL('image/webp', 0.82);
+    if (data.indexOf('data:image/webp') !== 0) data = cv.toDataURL('image/jpeg', 0.85);
+    return data;
+  }
+  function tryLoad(url, cors) {
+    return new Promise((res, rej) => {
+      const im = new Image();
+      if (cors) im.crossOrigin = 'anonymous';
+      const to = setTimeout(() => { im.src = ''; rej(new Error('timeout')); }, 12000);
+      im.onload = () => { clearTimeout(to); res(im); };
+      im.onerror = () => { clearTimeout(to); rej(new Error('load')); };
+      im.src = url;
+    });
+  }
+  function readAsDataUrl(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.onerror = () => rej(r.error || new Error('read'));
+      r.readAsDataURL(file);
+    });
+  }
+  async function fileToData(file) {
+    if (typeof createImageBitmap === 'function') {
+      try {
+        const bmp = await createImageBitmap(file);
+        try { return drawToData(bmp); } finally { if (bmp.close) bmp.close(); }
+      } catch (e) { /* fall through to FileReader */ }
+    }
+    const dataUrl = await readAsDataUrl(file);
+    try { return drawToData(await tryLoad(dataUrl, false)); }
+    catch (e) {
+      if (/^data:image\//.test(dataUrl) && dataUrl.length < 1500000) return dataUrl;
+      throw e;
+    }
+  }
+  function steamUrls(id, cap) {
+    const base = 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/' + id + '/';
+    const list = [];
+    if (cap && /^[\w./-]+$/.test(cap)) list.push(base + cap);
+    list.push(base + 'library_600x900.jpg', base + 'header.jpg',
+      'https://cdn.cloudflare.steamstatic.com/steam/apps/' + id + '/library_600x900.jpg',
+      'https://cdn.cloudflare.steamstatic.com/steam/apps/' + id + '/header.jpg');
+    return list;
+  }
+  async function steamImage(id, cap) {
+    const urls = steamUrls(id, cap);
+    for (const u of urls) {
+      try {
+        const im = await tryLoad(u, true);
+        try { return drawToData(im); } catch (e) { return u; }
+      } catch (e) { /* try next */ }
+    }
+    for (const u of urls) {
+      try { await tryLoad(u, false); return u; } catch (e) { /* try next */ }
+    }
+    return null;
+  }
+
+  function nameFromFile(file) {
+    let n = (file.name || '').replace(/\.[a-z0-9]+$/i, '').replace(/_+/g, ' ').trim();
+    if (!n || /^image$/i.test(n)) n = 'Игра ' + (state.games.length + 1);
+    return n.slice(0, 60);
+  }
+  function newGame(name, img, appid) {
+    return { id: uid(), name, img: img || null, appid: appid || null, cap: null, C: DEFAULT_C, m: DEFAULT_M, sum: null, n: null, score: null, tier: null };
+  }
+  async function addFiles(files) {
+    const list = Array.from(files || []).filter((f) => f && /^image\//.test(f.type));
+    if (!list.length) { setNote('Это не картинка. Подойдут PNG, JPG, WEBP или GIF.', true); return; }
+    setNote('Загружаю картинки: ' + list.length + '…');
+    let failed = 0;
+    const ids = [];
+    for (const f of list) {
+      try { const g = newGame(nameFromFile(f), await fileToData(f)); state.games.push(g); ids.push(g.id); }
+      catch (e) { failed++; }
+    }
+    changed();
+    setNote(failed ? 'Не получилось открыть ' + failed + ' из ' + list.length + ' файлов.' : (ids.length === 1 ? 'Игра добавлена в список.' : 'Добавлено игр: ' + ids.length + '.'), !!failed);
+    if (ui.naming) { ui.naming.queue.push(...ids); ui.naming.total += ids.length; updateNameCounter(); }
+    else if (ids.length && !ui.open && !ui.steam && !ui.preview) { ui.naming = { queue: ids.slice(1), total: ids.length, done: 0 }; openNameSheet(ids[0]); }
+    renderBoard();
+  }
+
+  /* ---------- naming sheet ---------- */
+  function nameCounterText() {
+    const n = ui.naming;
+    if (!n || n.total < 2) return '';
+    return 'Игра ' + (n.done + 1) + ' из ' + n.total + '. ';
+  }
+  function updateNameCounter() {
+    const el = document.getElementById('nm-hint');
+    if (el) el.textContent = nameCounterText() + 'Enter — сохранить, Esc — оставить как есть.';
+  }
+  function openNameSheet(id) {
+    const g = gameById(id);
+    if (!g) { nextName(); return; }
+    if (!ui.naming) ui.naming = { queue: [], total: 1, done: 0 };
+    ui.naming.current = id; ui.open = null; ui.steam = null;
+    document.getElementById('sheet-root').innerHTML =
+      '<div class="overlay" id="overlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="nm-title">' +
+        '<div class="sheet-head"><span class="img-box">' + picHtml(g) + '</span>' +
+          '<div class="field"><label for="nm-input" id="nm-title">Как называется игра?</label><input class="text" id="nm-input" maxlength="60" autocomplete="off" value="' + esc(g.name) + '"></div>' +
+          '<button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
+        '<p class="hint" id="nm-hint"></p>' +
+        '<div class="sheet-actions"><button class="btn primary" data-action="name-save">Сохранить</button>' +
+          '<button class="btn" data-action="name-rate">Сохранить и оценить</button></div>' +
+      '</div></div>';
+    updateNameCounter();
+    const inp = document.getElementById('nm-input');
+    inp.focus(); inp.select();
+  }
+  function applyName() {
+    const n = ui.naming;
+    const g = n && gameById(n.current);
+    const inp = document.getElementById('nm-input');
+    if (g && inp) {
+      const v = inp.value.trim();
+      if (v && v !== g.name) { g.name = v.slice(0, 60); changed(); }
+    }
+    return g;
+  }
+  function nextName() {
+    const n = ui.naming;
+    if (n && n.queue.length) { n.done++; openNameSheet(n.queue.shift()); return; }
+    ui.naming = null;
+    document.getElementById('sheet-root').innerHTML = '';
+    renderBoard();
+  }
+
+  /* ---------- Steam import ---------- */
+  function steamBase(input) {
+    const s = String(input || '').trim();
+    const m = s.match(/steamcommunity\.com\/(profiles\/\d{17}|id\/[A-Za-z0-9_.-]+)/i);
+    if (m) return 'https://steamcommunity.com/' + m[1];
+    if (/^\d{17}$/.test(s)) return 'https://steamcommunity.com/profiles/' + s;
+    return null;
+  }
+  function unjson(s) { try { return JSON.parse('"' + s + '"'); } catch (e) { return s; } }
+  function parseSteam(text) {
+    let t = String(text || '').replace(/&quot;/g, '"').replace(/&#34;/g, '"').replace(/&amp;/g, '&');
+    for (let i = 0; i < 4 && /\\+"appid\\+"/.test(t); i++) t = t.replace(/\\(["\\/])/g, '$1');
+    t = t.replace(/\\\//g, '/');
+    const owned = [], other = [], seenO = new Set(), seenA = new Set();
+    const blockRe = /\{[^{}]*?"appid"\s*:\s*"?(\d+)"?[^{}]*\}/g;
+    let m;
+    while ((m = blockRe.exec(t))) {
+      const b = m[0];
+      const nm = b.match(/"name"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if (!nm) continue;
+      const pt = b.match(/"playtime_forever"\s*:\s*(\d+)/);
+      const cap = b.match(/"capsule_filename"\s*:\s*"([^"]+)"/);
+      const item = { appid: Number(m[1]), name: unjson(nm[1]).trim(), mins: pt ? Number(pt[1]) : null, cap: cap ? cap[1] : null };
+      if (!item.appid || !item.name) continue;
+      if (pt) { if (!seenO.has(item.appid)) { seenO.add(item.appid); owned.push(item); } }
+      else if (!seenA.has(item.appid)) { seenA.add(item.appid); other.push(item); }
+    }
+    let out = owned.length ? owned : other;
+    if (!out.length) {
+      const seen = new Set();
+      const xmlRe = /<appID>\s*(\d+)\s*<\/appID>\s*<name>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?\s*<\/name>([\s\S]*?)<\/game>/gi;
+      while ((m = xmlRe.exec(t))) {
+        const id = Number(m[1]);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const h = m[3].match(/<hoursOnRecord>\s*([\d.,]+)\s*<\/hoursOnRecord>/i);
+        out.push({ appid: id, name: m[2].trim(), mins: h ? Math.round(parseFloat(h[1].replace(/,/g, '')) * 60) : null, cap: null });
+      }
+    }
+    return out.slice().sort((a, b) => (b.mins == null ? -1 : b.mins) - (a.mins == null ? -1 : a.mins));
+  }
+
+  const imgQueue = [];
+  let imgActive = 0;
+  function queueImage(id) {
+    imgQueue.push(id);
+    ui.loading.add(id);
+    pumpImages();
+  }
+  function pumpImages() {
+    while (imgActive < 4 && imgQueue.length) {
+      const id = imgQueue.shift();
+      const g = gameById(id);
+      if (!g || !g.appid) { ui.loading.delete(id); continue; }
+      imgActive++;
+      steamImage(g.appid, g.cap).then((img) => {
+        const cur = gameById(id);
+        if (cur && img) { cur.img = img; changed(); }
+      }).finally(() => {
+        imgActive--;
+        ui.loading.delete(id);
+        scheduleBoard();
+        if (!imgQueue.length && !imgActive) {
+          const missing = state.games.filter((g) => g.appid && !g.img).length;
+          setNote(missing ? 'Картинки загружены, кроме ' + missing + '. Steam-картинки грузятся только в скачанной версии сайта, а вместо остальных стоят цветные плашки — их можно заменить своей картинкой в окне игры.' : 'Все картинки из Steam загружены.');
+        }
+        pumpImages();
+      });
+    }
+  }
+  let boardTimer = null;
+  function scheduleBoard() { clearTimeout(boardTimer); boardTimer = setTimeout(renderBoard, 120); }
+
+  /* ---------- rendering ---------- */
+  function renderShell() {
+    app.innerHTML =
+      '<div class="wrap">' +
+        '<header class="top"><div class="title-block">' +
+          '<label class="title-label" for="title-input">Название тирлиста</label>' +
+          '<input id="title-input" class="title-input" data-field="title" maxlength="80" value="' + esc(state.title) + '">' +
+        '</div><div class="savebar" id="savebar" aria-live="polite"></div></header>' +
+        '<main id="board" style="display:grid;gap:16px"></main>' +
+      '</div>' +
+      '<div id="sheet-root"></div>';
+    renderSaveBar(); renderBoard();
+  }
+
+  function renderSaveBar() {
+    const el = document.getElementById('savebar');
+    if (!el) return;
+    let h = '';
+    if (ui.localStatus === 'loading') h += '<span class="dot"></span><span>Загружаю сохранённое…</span>';
+    else if (ui.localStatus === 'pending') h += '<span class="dot dirty"></span><span>Сохраняю в этом браузере…</span>';
+    else if (ui.localStatus === 'error') h += '<span class="dot bad"></span><span>Не получилось сохранить в браузере: возможно, закончилось место.' + (ui.artifact ? ' Нажмите «Сохранить в Claude».' : '') + '</span>';
+    else h += '<span class="dot ok"></span><span>Всё сохранено в этом браузере автоматически</span>';
+    if (ui.artifact) {
+      const dirty = sig(state) !== sig(saved);
+      if (ui.saving) h += '<button class="btn small" disabled>Сохраняю в Claude…</button>';
+      else if (dirty) h += '<button class="btn small" data-action="save" title="Нужно, чтобы тирлист открывался таким же на других устройствах и по ссылке">Сохранить в Claude</button>';
+      else if (ui.saveMsg) h += '<span>· ' + esc(ui.saveMsg) + '</span>';
+    }
+    if (ui.saveMsg && ui.saveMsg !== 'Сохранено в Claude') h += '<span class="note err" style="flex-basis:100%">' + esc(ui.saveMsg) + '</span>';
+    el.innerHTML = h;
+  }
+
+  function picHtml(g) {
+    return g.img
+      ? '<img src="' + esc(g.img) + '" alt="" data-fallback="1">'
+      : '<span class="ph h' + hue(g.name) + '">' + esc(g.name || '?') + '</span>';
+  }
+
+  function tileHtml(g, inTier) {
+    const score = inTier && g.score != null ? '<span class="score">' + fmt(g.score) + '</span>' : '';
+    const noteTxt = inTier ? 'Вернуть в список' : 'Оценить';
+    const label = inTier ? g.name + ': балл ' + fmt(g.score) + '. Нажмите, чтобы вернуть в список' : g.name + ': открыть формулу';
+    const tile = '<button class="tile' + (ui.loading.has(g.id) ? ' loading' : '') + '" data-gid="' + esc(g.id) + '" data-action="' + (inTier ? 'unplace' : 'open') + '" data-id="' + esc(g.id) + '" aria-label="' + esc(label) + '">' +
+      picHtml(g) + score + '<span class="hover-note">' + noteTxt + '</span><span class="cap">' + esc(g.name || 'Без названия') + '</span></button>';
+    if (inTier) return tile;
+    return '<div class="tile-wrap">' + tile + '<button class="del" data-action="del" data-id="' + esc(g.id) + '" aria-label="Удалить ' + esc(g.name) + '" title="Удалить игру">×</button>' +
+      '<button class="del ren" data-action="rename" data-id="' + esc(g.id) + '" aria-label="Переименовать ' + esc(g.name) + '" title="Переименовать">✎</button></div>';
+  }
+
+  function legendText(T) {
+    if (T.t === 'S') return 'S: от 8,5';
+    if (T.t === 'F') return 'F: меньше 2';
+    const i = TIERS.indexOf(T);
+    return T.t + ': от ' + fmtShort(T.min) + ' до ' + fmtShort(TIERS[i - 1].min);
+  }
+
+  function noteHtml() {
+    return esc(ui.note) + (ui.undo ? ' <button class="linkbtn" data-action="undo">Вернуть</button>' : '');
+  }
+
+  function renderBoard() {
+    const el = document.getElementById('board');
+    if (!el) return;
+    const placedCount = state.games.filter((g) => g.tier).length;
+    let h = '<div class="board-bar"><button class="btn primary" data-action="approve"' + (placedCount ? '' : ' disabled') + '>Утвердить</button>' +
+      '<span class="hint">' + (placedCount ? 'Сохраняет тирлист картинкой PNG: все тиры, обложки и баллы.' : 'Кнопка заработает, когда в тирах будет хотя бы одна игра.') + '</span></div>';
+    h += '<div class="tiers">';
+    TIERS.forEach((T) => {
+      const items = state.games.filter((g) => g.tier === T.t).sort((a, b) => b.score - a.score);
+      h += '<div class="tier" data-t="' + T.t + '"><div class="tier-label">' + T.t + '<small>' + T.label + '</small></div>' +
+        '<div class="tier-cards">' + items.map((g) => tileHtml(g, true)).join('') + '</div></div>';
+    });
+    h += '</div>';
+
+    const pool = state.games.filter((g) => !g.tier);
+    h += '<section class="pool" id="pool">' +
+      '<div class="pool-head"><h2>Игры без тира · ' + pool.length + '</h2>' +
+      '<button class="btn small" data-action="steam">Импорт из Steam</button>' +
+      '<p>Вставьте картинку (Ctrl+V), перетащите файлы сюда или нажмите «+». Нажмите на игру, чтобы посчитать её балл. В углах плитки: ✎ — переименовать, × — удалить.</p></div>' +
+      '<div class="pool-cards">' + pool.map((g) => tileHtml(g, false)).join('') +
+      '<label class="drop" for="file-input"><span><span class="plus">+</span>Добавить картинки</span>' +
+      '<input id="file-input" class="vh" type="file" accept="image/*" multiple></label>' +
+      (state.games.length ? '' : '<span class="pool-empty">Пока ни одной игры. Начните с обложек или импорта из Steam.</span>') +
+      '</div><p id="pool-note" class="note' + (ui.noteErr ? ' err' : '') + '" aria-live="polite">' + noteHtml() + '</p></section>';
+
+    h += '<div class="scale-legend" aria-label="Шкала тиров">' + TIERS.map((T) => '<span data-t="' + T.t + '">' + legendText(T) + '</span>').join('') + '</div>';
+
+    if (state.games.length) {
+      const arm = (k, a, b) => '<button class="btn small danger' + (ui.armed === k ? ' armed' : '') + '" data-action="' + k + '">' + (ui.armed === k ? b : a) + '</button>';
+      h += '<div class="footer-actions"><button class="btn small" data-action="all-back">Вернуть все игры в список</button>' +
+        (pool.length ? arm('clear-pool', 'Удалить игры без тира', 'Точно удалить ' + pool.length + '?') : '') +
+        arm('clear-all', 'Удалить все игры', 'Точно удалить все игры?') + '</div>';
+    }
+    el.innerHTML = h;
+  }
+
+  function setNote(text, isErr, withUndo) {
+    ui.note = text || ''; ui.noteErr = !!isErr;
+    if (!withUndo) ui.undo = null;
+    const el = document.getElementById('pool-note');
+    if (el) { el.innerHTML = noteHtml(); el.className = 'note' + (isErr ? ' err' : ''); }
+  }
+
+  /* ---------- formula sheet ---------- */
+  function field(id, label, val) {
+    return '<div class="field"><label for="' + id + '">' + label + '</label><input class="text" id="' + id + '" inputmode="decimal" autocomplete="off" value="' + esc(val) + '"></div>';
+  }
+  function openSheet(id) {
+    const g = gameById(id);
+    if (!g) return;
+    ui.open = id; ui.steam = null; ui.armed = null; ui.naming = null;
+    document.getElementById('sheet-root').innerHTML =
+      '<div class="overlay" id="overlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">' +
+        '<div class="sheet-head"><label class="img-pick" for="replace-input" title="Заменить картинку" id="pick">' + picHtml(g) + '<span class="swap">заменить</span></label>' +
+          '<input type="file" id="replace-input" class="vh" accept="image/*">' +
+          '<div class="field"><label for="g-name" id="sheet-title">Название игры</label><input class="text" id="g-name" maxlength="60" value="' + esc(g.name) + '"></div>' +
+          '<button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
+        '<div class="formula-line">балл = (C · m + сумма оценок) / (C + n)</div>' +
+        '<div class="inputs">' +
+          field('f-C', 'C', fmtShort(g.C)) + field('f-m', 'm', fmtShort(g.m)) +
+          field('f-sum', 'Сумма оценок', g.sum == null ? '' : fmtShort(g.sum)) + field('f-n', 'n, человек', g.n == null ? '' : fmtShort(g.n)) +
+        '</div>' +
+        '<div class="result" id="f-result"></div>' +
+        '<p class="err" id="f-err"></p>' +
+        '<div class="sheet-actions"><button class="btn primary" id="f-go" data-action="determine">Определить</button>' +
+          '<button class="btn danger" id="f-del" data-action="delete-open">Удалить игру</button></div>' +
+        '<p class="hint">Enter тоже определяет тир, Esc закрывает окно. Чтобы заменить картинку, нажмите на неё или вставьте новую через Ctrl+V.</p>' +
+      '</div></div>';
+    updatePreview();
+    const f = document.getElementById('f-sum');
+    f.focus(); f.select();
+  }
+  function closeSheet() {
+    const id = ui.open;
+    ui.open = null; ui.steam = null; ui.armed = null; ui.preview = null; ui.naming = null;
+    document.getElementById('sheet-root').innerHTML = '';
+    renderBoard();
+    if (id) { const t = app.querySelector('.tile[data-id="' + id + '"]'); if (t) t.focus(); }
+  }
+
+  function readForm() {
+    const val = (k) => parseNum(document.getElementById('f-' + k).value);
+    const v = { C: val('C'), m: val('m'), sum: val('sum'), n: val('n') };
+    const errs = [], bad = {};
+    const need = (k, ok, msg) => { if (!ok) { bad[k] = true; if (msg) errs.push(msg); } };
+    need('C', v.C !== null && !isNaN(v.C) && v.C >= 0, 'C — число не меньше 0.');
+    need('m', v.m !== null && !isNaN(v.m) && v.m >= 0 && v.m <= MAX_RATING, 'm — число от 0 до 10.');
+    if (v.n === null) need('n', false, '');
+    else need('n', !isNaN(v.n) && v.n >= 0 && Math.floor(v.n) === v.n, 'n — целое число людей, 0 или больше.');
+    if (v.sum === null) need('sum', false, '');
+    else need('sum', !isNaN(v.sum) && v.sum >= 0, 'Сумма оценок не может быть отрицательной.');
+    if (!bad.sum && !bad.n && v.sum !== null && v.n !== null && v.sum > MAX_RATING * v.n + 1e-9) {
+      bad.sum = true;
+      errs.push(v.n === 0 ? 'Если никто не оценил (n = 0), сумма должна быть 0.' : 'Сумма больше, чем ' + v.n + ' × 10 = ' + (v.n * MAX_RATING) + '. Проверьте сумму или n.');
+    }
+    if (!bad.C && !bad.n && v.n !== null && v.C + v.n === 0) { bad.C = true; errs.push('C и n не могут быть оба нулями: делить на 0 нельзя.'); }
+    const empty = v.sum === null || v.n === null;
+    return { v, errs, bad, ok: !errs.length && !empty, empty };
+  }
+
+  function updatePreview() {
+    const f = readForm();
+    ['C', 'm', 'sum', 'n'].forEach((k) => {
+      const el = document.getElementById('f-' + k);
+      el.classList.toggle('bad', !!f.bad[k] && el.value.trim() !== '');
+    });
+    const res = document.getElementById('f-result');
+    document.getElementById('f-err').textContent = f.errs.join(' ');
+    document.getElementById('f-go').disabled = !f.ok;
+    if (!f.ok) {
+      res.innerHTML = '<span class="hint">' + (f.empty ? 'Введите сумму оценок и количество людей.' : 'Исправьте значения, и здесь появится балл.') + '</span>';
+      return;
+    }
+    const v = f.v, s = scoreOf(v.C, v.m, v.sum, v.n), t = tierFor(s);
+    res.innerHTML = '<span class="calc">(' + fmtShort(v.C) + ' · ' + fmtShort(v.m) + ' + ' + fmtShort(v.sum) + ') / (' + fmtShort(v.C) + ' + ' + fmtShort(v.n) + ') = <b>' + fmt(s) + '</b></span>' +
+      '<span class="tier-pill" data-t="' + t + '">' + t + '</span>';
+  }
+
+  function determine() {
+    const g = gameById(ui.open);
+    if (!g) return;
+    const f = readForm();
+    if (!f.ok) { updatePreview(); return; }
+    const v = f.v;
+    g.name = document.getElementById('g-name').value.trim() || g.name;
+    Object.assign(g, { C: v.C, m: v.m, sum: v.sum, n: v.n });
+    g.score = scoreOf(v.C, v.m, v.sum, v.n);
+    g.tier = tierFor(g.score);
+    changed();
+    setNote(g.name + ' → ' + g.tier + ' (' + fmt(g.score) + ')');
+    ui.open = null;
+    document.getElementById('sheet-root').innerHTML = '';
+    renderBoard();
+  }
+
+  async function replaceImage(file) {
+    const g = gameById(ui.open);
+    if (!g || !file) return;
+    try {
+      g.img = await fileToData(file);
+      changed();
+      const pick = document.getElementById('pick');
+      if (pick) pick.innerHTML = picHtml(g) + '<span class="swap">заменить</span>';
+    } catch (e) {
+      document.getElementById('f-err').textContent = 'Не получилось открыть эту картинку.';
+    }
+  }
+
+  function deleteGame(id) {
+    const idx = state.games.findIndex((g) => g.id === id);
+    if (idx < 0) return;
+    const [g] = state.games.splice(idx, 1);
+    ui.undo = { g, idx };
+    changed();
+    setNote('«' + (g.name || 'Игра') + '» удалена.', false, true);
+    renderBoard();
+  }
+
+  /* ---------- Steam sheet ---------- */
+  function openSteam() {
+    ui.open = null; ui.armed = null; ui.naming = null;
+    ui.steam = ui.steam || { url: '', found: [], filter: '', checked: new Set(), parsed: false };
+    renderSteam();
+    const u = document.getElementById('steam-url');
+    if (u) u.focus();
+  }
+  function steamLinksHtml() {
+    const base = steamBase(ui.steam.url);
+    if (!base) return ui.steam.url.trim() ? '<p class="err">Не похоже на ссылку на профиль Steam. Нужна ссылка вида steamcommunity.com/profiles/… или steamcommunity.com/id/…</p>' : '';
+    return '<div class="links"><a href="' + esc(base + '/games/?tab=all') + '" target="_blank" rel="noopener">Открыть список игр</a>' +
+      '<a href="' + esc(base + '/games/?tab=all&xml=1') + '" target="_blank" rel="noopener">Открыть XML-версию</a></div>';
+  }
+  function renderSteam() {
+    const s = ui.steam;
+    const have = new Set(state.games.filter((g) => g.appid).map((g) => g.appid));
+    const q = s.filter.trim().toLowerCase();
+    const shown = s.found.filter((x) => !q || x.name.toLowerCase().indexOf(q) >= 0);
+    const selectable = s.found.filter((x) => !have.has(x.appid));
+    const nChecked = selectable.filter((x) => s.checked.has(x.appid)).length;
+    let list = '';
+    if (s.parsed && !s.found.length) {
+      list = '<p class="err">Игр не нашлось. Проверьте, что скопирован весь код страницы (Ctrl+A перед Ctrl+C) и что вы вошли в Steam в этом браузере. Если профиль чужой, у владельца должны быть открыты «Сведения об играх».</p>';
+    } else if (s.found.length) {
+      list = '<div class="steam-tools"><input class="text" id="steam-filter" placeholder="Поиск по названию" value="' + esc(s.filter) + '" aria-label="Поиск по названию">' +
+        '<button class="btn small" data-action="steam-all">Выбрать все</button><button class="btn small" data-action="steam-none">Снять все</button></div>' +
+        '<div class="steam-list">' + shown.map((x) => {
+          const had = have.has(x.appid);
+          const meta = had ? 'уже добавлена' : (x.mins != null ? (Math.round(x.mins / 6) / 10).toString().replace('.', ',') + ' ч' : '');
+          return '<label class="steam-row' + (had ? ' had' : '') + '"><input type="checkbox" data-steam="' + x.appid + '"' + (had ? ' disabled' : (s.checked.has(x.appid) ? ' checked' : '')) + '>' +
+            '<span>' + esc(x.name) + '</span><span class="meta">' + meta + '</span></label>';
+        }).join('') + '</div>' +
+        '<div class="sheet-actions"><span class="hint">Найдено игр: ' + s.found.length + (selectable.length < s.found.length ? ', новых: ' + selectable.length : '') + '</span>' +
+        '<button class="btn primary" data-action="steam-add"' + (nChecked ? '' : ' disabled') + '>Добавить выбранные (' + nChecked + ')</button></div>';
+    }
+    document.getElementById('sheet-root').innerHTML =
+      '<div class="overlay" id="overlay"><div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="steam-title">' +
+        '<div class="sheet-head plain"><h2 id="steam-title">Импорт игр из Steam</h2><button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
+        '<div class="field"><label for="steam-url">Ссылка на профиль Steam</label><input class="text" id="steam-url" placeholder="https://steamcommunity.com/profiles/7656…" value="' + esc(s.url) + '"></div>' +
+        '<div id="steam-links">' + steamLinksHtml() + '</div>' +
+        '<ol class="steps">' +
+          '<li>Нажмите «Открыть список игр». В этом браузере нужно быть залогиненным в Steam.</li>' +
+          '<li>На открывшейся странице нажмите <kbd>Ctrl</kbd>+<kbd>U</kbd>, чтобы открыть её код.</li>' +
+          '<li>Там нажмите <kbd>Ctrl</kbd>+<kbd>A</kbd>, затем <kbd>Ctrl</kbd>+<kbd>C</kbd>, вернитесь сюда и вставьте в поле ниже.</li>' +
+        '</ol>' +
+        '<p class="hint">Если не сработало, откройте «XML-версию» и скопируйте её целиком так же. Steam иногда показывает в ней не все игры.</p>' +
+        '<div class="field"><label for="steam-paste">Код страницы</label><textarea class="text" id="steam-paste" placeholder="Вставьте сюда скопированный код"></textarea></div>' +
+        '<div id="steam-found" style="display:grid;gap:10px">' + list + '</div>' +
+      '</div></div>';
+  }
+  function updateSteamLinks() {
+    const el = document.getElementById('steam-links');
+    if (el) el.innerHTML = steamLinksHtml();
+  }
+  function steamAdd() {
+    const s = ui.steam;
+    const have = new Set(state.games.filter((g) => g.appid).map((g) => g.appid));
+    const pick = s.found.filter((x) => s.checked.has(x.appid) && !have.has(x.appid));
+    const ids = [];
+    pick.forEach((x) => { const g = newGame(x.name.slice(0, 60), null, x.appid); g.cap = x.cap || null; state.games.push(g); ids.push(g.id); });
+    changed();
+    ui.steam = null;
+    document.getElementById('sheet-root').innerHTML = '';
+    setNote('Добавлено игр из Steam: ' + pick.length + '. Загружаю картинки…');
+    ids.forEach(queueImage);
+    renderBoard();
+  }
+
+  /* ---------- PNG export ---------- */
+  const EXPORT_TIER = { S: '#ff7f7f', A: '#ffbf7f', B: '#ffdf7f', C: '#f4f47a', D: '#bff27f', E: '#7fe6b0', F: '#8fd3ff' };
+  const PH_COLORS = ['#5b3fd1', '#b4304f', '#1f7a6b', '#a85a12', '#2f5fa8', '#7a2f8f', '#3d6b21', '#6b4a3a'];
+
+  function pathRound(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function wrapLines(ctx, text, maxW, maxLines) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = '';
+    const fit = (w) => {
+      if (ctx.measureText(w).width <= maxW) return [w];
+      const parts = []; let chunk = '';
+      for (const ch of w) { if (ctx.measureText(chunk + ch).width > maxW && chunk) { parts.push(chunk); chunk = ch; } else chunk += ch; }
+      if (chunk) parts.push(chunk);
+      return parts;
+    };
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width <= maxW) { cur = test; continue; }
+      if (cur) lines.push(cur);
+      const pieces = fit(w);
+      cur = pieces.pop();
+      lines.push(...pieces);
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) {
+      const keep = lines.slice(0, maxLines);
+      let last = keep[maxLines - 1];
+      while (last.length && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+      keep[maxLines - 1] = last + '…';
+      return keep;
+    }
+    return lines;
+  }
+  async function loadForCanvas(src) {
+    if (!src) return null;
+    try { return await tryLoad(src, /^https:/.test(src)); } catch (e) { return null; }
+  }
+
+  async function renderPng() {
+    try {
+      await Promise.race([
+        Promise.all(['800 40px "Unbounded"', '700 16px "Golos Text"', '600 13px "Golos Text"'].map((f) => document.fonts.load(f))),
+        new Promise((r) => setTimeout(r, 2500))
+      ]);
+    } catch (e) { /* fonts optional */ }
+    const W = 1600, PAD = 32, LABEL = 132, TILE = 118, CAP = 36, GAP = 10, HEAD = 104, FOOT = 56, ROWGAP = 6;
+    const area = W - PAD * 2 - LABEL - GAP * 2;
+    const perRow = Math.max(1, Math.floor((area + GAP) / (TILE + GAP)));
+    const rows = TIERS.map((T) => {
+      const items = state.games.filter((g) => g.tier === T.t).sort((a, b) => b.score - a.score);
+      const lines = Math.ceil(items.length / perRow);
+      const h = lines ? lines * (TILE + CAP) + (lines - 1) * GAP + GAP * 2 : 92;
+      return { T, items, h };
+    });
+    const H = HEAD + rows.reduce((s, r) => s + r.h + ROWGAP, 0) + FOOT;
+
+    const imgs = new Map();
+    await Promise.all(state.games.filter((g) => g.tier).map(async (g) => { imgs.set(g.id, await loadForCanvas(g.img)); }));
+
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#14171f';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 34px "Unbounded", "Arial Black", sans-serif';
+    const title = wrapLines(ctx, state.title || 'Тирлист', W - PAD * 2 - 360, 1)[0] || '';
+    ctx.fillText(title, PAD, 62);
+    ctx.font = '600 15px "Golos Text", system-ui, sans-serif';
+    ctx.fillStyle = '#9ba2b4';
+    ctx.textAlign = 'right';
+    const placed = rows.reduce((s, r) => s + r.items.length, 0);
+    ctx.fillText('Утверждено ' + new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · игр: ' + placed, W - PAD, 62);
+    ctx.textAlign = 'left';
+
+    let y = HEAD;
+    for (const r of rows) {
+      ctx.fillStyle = '#1f2430';
+      pathRound(ctx, PAD, y, W - PAD * 2, r.h, 10); ctx.fill();
+      ctx.save();
+      pathRound(ctx, PAD, y, W - PAD * 2, r.h, 10); ctx.clip();
+      ctx.fillStyle = EXPORT_TIER[r.T.t];
+      ctx.fillRect(PAD, y, LABEL, r.h);
+      ctx.restore();
+      ctx.fillStyle = '#1a1e29';
+      ctx.textAlign = 'center';
+      ctx.font = '800 46px "Unbounded", "Arial Black", sans-serif';
+      ctx.fillText(r.T.t, PAD + LABEL / 2, y + r.h / 2 + 8);
+      ctx.font = '700 14px "Golos Text", system-ui, sans-serif';
+      ctx.fillText(r.T.label, PAD + LABEL / 2, y + r.h / 2 + 32);
+      ctx.textAlign = 'left';
+
+      r.items.forEach((g, i) => {
+        const col = i % perRow, line = Math.floor(i / perRow);
+        const tx = PAD + LABEL + GAP + col * (TILE + GAP);
+        const ty = y + GAP + line * (TILE + CAP + GAP);
+        ctx.save();
+        pathRound(ctx, tx, ty, TILE, TILE, 6); ctx.clip();
+        const im = imgs.get(g.id);
+        if (im) {
+          const sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
+          const side = Math.min(sw, sh);
+          const sx = (sw - side) / 2, sy = (sh - side) * 0.35;
+          ctx.drawImage(im, sx, sy, side, side, tx, ty, TILE, TILE);
+        } else {
+          ctx.fillStyle = PH_COLORS[hue(g.name)];
+          ctx.fillRect(tx, ty, TILE, TILE);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 13px "Golos Text", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          const ls = wrapLines(ctx, g.name, TILE - 12, 5);
+          const top = ty + TILE / 2 - (ls.length * 16) / 2 + 12;
+          ls.forEach((l, k) => ctx.fillText(l, tx + TILE / 2, top + k * 16));
+          ctx.textAlign = 'left';
+        }
+        ctx.restore();
+        const sc = fmt(g.score);
+        ctx.font = '700 13px "Golos Text", system-ui, sans-serif';
+        const bw = ctx.measureText(sc).width + 10;
+        ctx.fillStyle = 'rgba(10,12,18,0.8)';
+        pathRound(ctx, tx + TILE - bw - 4, ty + 4, bw, 20, 4); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(sc, tx + TILE - bw + 1, ty + 19);
+        ctx.fillStyle = '#e7e9ef';
+        ctx.font = '600 12.5px "Golos Text", system-ui, sans-serif';
+        wrapLines(ctx, g.name, TILE, 2).forEach((l, k) => ctx.fillText(l, tx, ty + TILE + 15 + k * 15));
+      });
+      y += r.h + ROWGAP;
+    }
+    ctx.fillStyle = '#9ba2b4';
+    ctx.font = '500 14px "Golos Text", system-ui, sans-serif';
+    ctx.fillText('балл = (C · m + сумма оценок) / (C + n)   ·   ' + TIERS.map(legendText).join('   ·   '), PAD, H - 24);
+    return cv;
+  }
+
+  function pngName() {
+    const base = (state.title || 'тирлист').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'тирлист';
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return base + ' ' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.png';
+  }
+
+  async function savePng() {
+    const p = ui.png;
+    if (!p) return 'none';
+    if (ui.downloads) {
+      try { await ui.downloads.save({ filename: p.name, data: p.blob }); return 'saved'; }
+      catch (e) { return e && e.code === 'declined' ? 'declined' : (e && e.code === 'rate_limited' ? 'busy' : 'none'); }
+    }
+    if (!inClaude() || location.protocol === 'file:') {
+      try {
+        const url = URL.createObjectURL(p.blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = p.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return 'saved';
+      } catch (e) { return 'none'; }
+    }
+    return 'none';
+  }
+
+  function previewStatus(status) {
+    const name = ui.png ? ui.png.name : '';
+    if (status === 'saved') return '<span class="ok-text">Картинка сохранена: ' + esc(name) + '</span>';
+    if (status === 'declined') return 'Сохранение отменено. Можно скачать ещё раз.';
+    if (status === 'busy') return 'Окно сохранения уже открыто. Подождите и нажмите «Скачать ещё раз».';
+    if (status === 'working') return 'Сохраняю…';
+    return 'Скачать файл здесь не получилось. Нажмите на картинку правой кнопкой мыши и выберите «Сохранить картинку как».';
+  }
+  function renderPreview(status) {
+    if (!ui.png) return;
+    ui.preview = true; ui.open = null; ui.steam = null;
+    document.getElementById('sheet-root').innerHTML =
+      '<div class="overlay" id="overlay"><div class="sheet preview" role="dialog" aria-modal="true" aria-labelledby="pv-title">' +
+        '<div class="sheet-head plain"><h2 id="pv-title">Тирлист утверждён</h2><button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
+        '<p class="hint" id="pv-status" aria-live="polite">' + previewStatus(status) + '</p>' +
+        '<div class="preview-scroll"><img class="preview-img" src="' + ui.png.url + '" alt="Картинка тирлиста"></div>' +
+        '<div class="sheet-actions"><button class="btn primary" data-action="png-again">Скачать ещё раз</button><button class="btn" data-action="close">Закрыть</button></div>' +
+      '</div></div>';
+  }
+
+  async function approve(btn) {
+    if (!state.games.some((g) => g.tier)) { setNote('Сначала поставьте хотя бы одну игру в тир.', true); return; }
+    btn.disabled = true; btn.textContent = 'Собираю картинку…';
+    try {
+      const cv = await renderPng();
+      const blob = await new Promise((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('blob'))), 'image/png'));
+      ui.png = { blob, url: cv.toDataURL('image/png'), name: pngName() };
+      renderPreview('working');
+      const st = await savePng();
+      const el = document.getElementById('pv-status');
+      if (el) el.innerHTML = previewStatus(st);
+    } catch (e) {
+      setNote('Не получилось собрать картинку. Попробуйте ещё раз.', true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Утвердить';
+    }
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'overlay') { closeSheet(); return; }
+    const b = e.target.closest('[data-action]');
+    if (!b) return;
+    const a = b.getAttribute('data-action'), id = b.getAttribute('data-id');
+    const armable = ['clear-all', 'clear-pool', 'delete-open'];
+    if (armable.indexOf(a) < 0 && ui.armed) {
+      ui.armed = null;
+      if (!ui.open && !ui.steam && !ui.preview && !ui.naming) renderBoard();
+      else { const del = document.getElementById('f-del'); if (del) { del.classList.remove('armed'); del.textContent = 'Удалить игру'; } }
+    }
+    switch (a) {
+      case 'save': saveToPage(); return;
+      case 'open': openSheet(id); return;
+      case 'unplace': {
+        const g = gameById(id);
+        if (g) { g.tier = null; changed(); setNote(g.name + ' возвращена в список.'); renderBoard(); }
+        return;
+      }
+      case 'del': deleteGame(id); return;
+      case 'rename': ui.naming = { queue: [], total: 1, done: 0 }; openNameSheet(id); return;
+      case 'name-save': applyName(); nextName(); return;
+      case 'name-rate': {
+        const g = applyName();
+        ui.naming = null;
+        if (g) openSheet(g.id); else closeSheet();
+        return;
+      }
+      case 'undo':
+        if (ui.undo) {
+          state.games.splice(Math.min(ui.undo.idx, state.games.length), 0, ui.undo.g);
+          const name = ui.undo.g.name;
+          ui.undo = null; changed(); setNote('«' + name + '» возвращена.'); renderBoard();
+        }
+        return;
+      case 'close': closeSheet(); return;
+      case 'determine': determine(); return;
+      case 'delete-open':
+        if (ui.armed !== 'del') { ui.armed = 'del'; b.classList.add('armed'); b.textContent = 'Точно удалить?'; return; }
+        { const gid = ui.open; ui.armed = null; ui.open = null; document.getElementById('sheet-root').innerHTML = ''; deleteGame(gid); }
+        return;
+      case 'all-back':
+        state.games.forEach((g) => { g.tier = null; });
+        changed(); setNote('Все игры возвращены в список.'); renderBoard(); return;
+      case 'clear-pool':
+        if (ui.armed !== 'clear-pool') { ui.armed = 'clear-pool'; renderBoard(); return; }
+        { const n = state.games.filter((g) => !g.tier).length; ui.armed = null; state.games = state.games.filter((g) => g.tier); changed(); setNote('Удалено игр без тира: ' + n + '.'); renderBoard(); }
+        return;
+      case 'clear-all':
+        if (ui.armed !== 'clear-all') { ui.armed = 'clear-all'; renderBoard(); return; }
+        ui.armed = null; state.games = []; changed(); setNote(''); renderBoard(); return;
+      case 'steam': openSteam(); return;
+      case 'steam-all':
+      case 'steam-none': {
+        const s = ui.steam; if (!s) return;
+        const have = new Set(state.games.filter((g) => g.appid).map((g) => g.appid));
+        const q = s.filter.trim().toLowerCase();
+        s.found.filter((x) => !have.has(x.appid) && (!q || x.name.toLowerCase().indexOf(q) >= 0)).forEach((x) => {
+          if (a === 'steam-all') s.checked.add(x.appid); else s.checked.delete(x.appid);
+        });
+        const keep = document.getElementById('steam-paste').value;
+        renderSteam(); document.getElementById('steam-paste').value = keep;
+        return;
+      }
+      case 'steam-add': steamAdd(); return;
+      case 'approve': approve(b); return;
+      case 'png-again': {
+        const el = document.getElementById('pv-status');
+        if (el) el.innerHTML = previewStatus('working');
+        savePng().then((st) => { const e2 = document.getElementById('pv-status'); if (e2) e2.innerHTML = previewStatus(st); });
+        return;
+      }
+      default: return;
+    }
+  });
+
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.getAttribute && t.getAttribute('data-field') === 'title') { state.title = t.value; changed(); return; }
+    if (t.id === 'g-name') { const g = gameById(ui.open); if (g) { g.name = t.value; changed(); } return; }
+    if (/^f-(C|m|sum|n)$/.test(t.id)) { updatePreview(); return; }
+    if (t.id === 'steam-url' && ui.steam) { ui.steam.url = t.value; updateSteamLinks(); return; }
+    if (t.id === 'steam-paste' && ui.steam) {
+      const found = parseSteam(t.value);
+      ui.steam.found = found; ui.steam.parsed = t.value.trim().length > 0;
+      ui.steam.checked = new Set(found.map((x) => x.appid));
+      const keep = t.value;
+      renderSteam();
+      const ta = document.getElementById('steam-paste'); ta.value = keep;
+      return;
+    }
+    if (t.id === 'steam-filter' && ui.steam) {
+      ui.steam.filter = t.value;
+      const keep = document.getElementById('steam-paste').value;
+      const pos = t.selectionStart;
+      renderSteam();
+      document.getElementById('steam-paste').value = keep;
+      const f = document.getElementById('steam-filter'); f.focus(); try { f.setSelectionRange(pos, pos); } catch (err) { /* ignore */ }
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'file-input') { addFiles(t.files); t.value = ''; return; }
+    if (t.id === 'replace-input') { replaceImage(t.files && t.files[0]); t.value = ''; return; }
+    const sid = t.getAttribute && t.getAttribute('data-steam');
+    if (sid && ui.steam) {
+      if (t.checked) ui.steam.checked.add(Number(sid)); else ui.steam.checked.delete(Number(sid));
+      const btn = document.querySelector('[data-action="steam-add"]');
+      const have = new Set(state.games.filter((g) => g.appid).map((g) => g.appid));
+      const n = ui.steam.found.filter((x) => ui.steam.checked.has(x.appid) && !have.has(x.appid)).length;
+      if (btn) { btn.disabled = !n; btn.textContent = 'Добавить выбранные (' + n + ')'; }
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!ui.open && !ui.steam && !ui.preview && !ui.naming) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
+    if (ui.naming && e.key === 'Enter' && e.target.id === 'nm-input') { e.preventDefault(); applyName(); nextName(); return; }
+    if (ui.open && e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.closest('.sheet')) { e.preventDefault(); determine(); }
+  });
+
+  document.addEventListener('paste', (e) => {
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    const files = [];
+    for (const it of items) if (it.kind === 'file' && /^image\//.test(it.type)) { const f = it.getAsFile(); if (f) files.push(f); }
+    if (!files.length) return;
+    e.preventDefault();
+    if (ui.open) replaceImage(files[0]);
+    else if (!ui.steam && !ui.preview) addFiles(files);
+  });
+
+  document.addEventListener('error', (e) => {
+    const t = e.target;
+    if (!t || t.tagName !== 'IMG' || !t.getAttribute('data-fallback')) return;
+    const holder = t.closest('[data-gid]');
+    const g = holder ? gameById(holder.getAttribute('data-gid')) : gameById(ui.open);
+    const span = document.createElement('span');
+    span.className = 'ph h' + hue(g ? g.name : '');
+    span.textContent = g ? g.name : '?';
+    t.replaceWith(span);
+  }, true);
+
+  let dragDepth = 0;
+  const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') >= 0;
+  const pool = () => document.getElementById('pool');
+  document.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; dragDepth++; if (pool()) pool().classList.add('dragging'); });
+  document.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth && pool()) pool().classList.remove('dragging'); });
+  document.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+  document.addEventListener('drop', (e) => {
+    if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+    e.preventDefault(); dragDepth = 0;
+    if (pool()) pool().classList.remove('dragging');
+    if (ui.open) replaceImage(e.dataTransfer.files[0]); else addFiles(e.dataTransfer.files);
+  });
+
+  /* ---------- start ---------- */
+  renderShell();
+  connectArtifact();
+  local.get().then((rec) => {
+    if (rec && rec.state) {
+      const ls = normalize(rec.state);
+      const savedAt = saved.savedAt ? Date.parse(saved.savedAt) : 0;
+      if ((rec.at || 0) > savedAt && sig(ls) !== sig(state)) {
+        ls.savedAt = saved.savedAt;
+        state = ls;
+        const ti = document.getElementById('title-input');
+        if (ti) ti.value = state.title;
+        renderBoard();
+      }
+    }
+    ui.localStatus = 'ok';
+    renderSaveBar();
+    state.games.filter((g) => g.appid && !g.img).forEach((g) => queueImage(g.id));
+  }, () => { ui.localStatus = 'ok'; renderSaveBar(); });
+
+  window.__tierlist = { state: () => state, tierFor, scoreOf, parseSteam };
+})();
+</script>
+</body>
+</html>
