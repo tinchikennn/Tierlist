@@ -239,6 +239,17 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
 .preview-img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
 .preview-scroll { max-height: 60vh; overflow: auto; border-radius: 8px; }
 .ok-text { color: var(--ok); font-weight: 600; }
+.cm-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cm-row .text { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rate-list, .detail-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 18px; }
+.rate-row, .detail-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.rate-row { cursor: text; }
+.rate-name { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.rate-input { width: 64px; flex: none; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; padding: 6px; }
+.detail-row b { font-variant-numeric: tabular-nums; font-size: 16px; }
+.detail-row.none { color: var(--muted); }
+.detail-score { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.detail-score .big { font-family: var(--font-display); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .footer-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
 
 @media (max-width: 560px) {
@@ -272,6 +283,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
   const TIER_NAMES = TIERS.map((x) => x.t);
   const DEFAULT_C = 2, DEFAULT_M = 7, MAX_RATING = 10, IMG_MAX = 220;
   const LOCAL_KEY = 'tierlist-local-v2';
+  const DEFAULT_PEOPLE = ['tinchiken', 'arneri', 'Sleep', 'yorik', 'bobus', 'Leo', 'Кто такой MANNY?', 'Tihonia228', 'FRANKstroy'];
   const app = document.getElementById('app');
 
   /* ---------- helpers ---------- */
@@ -296,14 +308,16 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     return h % 8;
   }
-  const sig = (st) => JSON.stringify({ title: st.title, games: st.games });
+  const sig = (st) => JSON.stringify({ title: st.title, people: st.people, games: st.games });
 
   /* ---------- state ---------- */
   function normalize(raw) {
     const st = raw && typeof raw === 'object' ? raw : {};
     const games = Array.isArray(st.games) ? st.games : [];
+    const people = Array.isArray(st.people) ? st.people.map((x) => String(x || '').trim()).filter(Boolean) : [];
     return {
       title: typeof st.title === 'string' ? st.title : 'Тирлист игр нашей компании',
+      people: people.length ? people : DEFAULT_PEOPLE.slice(),
       savedAt: st.savedAt || null,
       games: games.filter((g) => g && g.id).map((g) => {
         const num = (v) => (v != null && v !== '' && isFinite(Number(v))) ? Number(v) : null;
@@ -318,8 +332,15 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
           sum: num(g.sum),
           n: num(g.n),
           score: num(g.score),
+          ratings: {},
           tier: null
         };
+        if (g.ratings && typeof g.ratings === 'object') {
+          Object.keys(g.ratings).forEach((k) => {
+            const x = num(g.ratings[k]);
+            if (x != null && x >= 0 && x <= MAX_RATING) o.ratings[k] = x;
+          });
+        }
         if (TIER_NAMES.indexOf(g.tier) >= 0 && o.score != null) o.tier = tierFor(o.score);
         return o;
       })
@@ -332,7 +353,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
   let state = clone(saved);
 
   const ui = {
-    open: null, steam: null, naming: null, armed: null, undo: null,
+    open: null, steam: null, naming: null, detail: null, confirm: null, armed: null, undo: null,
     note: '', noteErr: false,
     artifact: undefined, downloads: undefined, saving: false, saveMsg: '', preview: null, png: null,
     localStatus: 'loading', loading: new Set()
@@ -528,7 +549,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     return n.slice(0, 60);
   }
   function newGame(name, img, appid) {
-    return { id: uid(), name, img: img || null, appid: appid || null, cap: null, C: DEFAULT_C, m: DEFAULT_M, sum: null, n: null, score: null, tier: null };
+    return { id: uid(), name, img: img || null, appid: appid || null, cap: null, C: DEFAULT_C, m: DEFAULT_M, sum: null, n: null, score: null, ratings: {}, tier: null };
   }
   async function addFiles(files) {
     const list = Array.from(files || []).filter((f) => f && /^image\//.test(f.type));
@@ -543,7 +564,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     changed();
     setNote(failed ? 'Не получилось открыть ' + failed + ' из ' + list.length + ' файлов.' : (ids.length === 1 ? 'Игра добавлена в список.' : 'Добавлено игр: ' + ids.length + '.'), !!failed);
     if (ui.naming) { ui.naming.queue.push(...ids); ui.naming.total += ids.length; updateNameCounter(); }
-    else if (ids.length && !ui.open && !ui.steam && !ui.preview) { ui.naming = { queue: ids.slice(1), total: ids.length, done: 0 }; openNameSheet(ids[0]); }
+    else if (ids.length && !ui.open && !ui.steam && !ui.preview && !ui.detail && !ui.confirm) { ui.naming = { queue: ids.slice(1), total: ids.length, done: 0 }; openNameSheet(ids[0]); }
     renderBoard();
   }
 
@@ -706,9 +727,9 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
 
   function tileHtml(g, inTier) {
     const score = inTier && g.score != null ? '<span class="score">' + fmt(g.score) + '</span>' : '';
-    const noteTxt = inTier ? 'Вернуть в список' : 'Оценить';
-    const label = inTier ? g.name + ': балл ' + fmt(g.score) + '. Нажмите, чтобы вернуть в список' : g.name + ': открыть формулу';
-    const tile = '<button class="tile' + (ui.loading.has(g.id) ? ' loading' : '') + '" data-gid="' + esc(g.id) + '" data-action="' + (inTier ? 'unplace' : 'open') + '" data-id="' + esc(g.id) + '" aria-label="' + esc(label) + '">' +
+    const noteTxt = inTier ? 'Кто как оценил' : 'Оценить';
+    const label = inTier ? g.name + ': балл ' + fmt(g.score) + '. Нажмите, чтобы посмотреть оценки' : g.name + ': открыть оценки';
+    const tile = '<button class="tile' + (ui.loading.has(g.id) ? ' loading' : '') + '" data-gid="' + esc(g.id) + '" data-action="' + (inTier ? 'details' : 'open') + '" data-id="' + esc(g.id) + '" aria-label="' + esc(label) + '">' +
       picHtml(g) + score + '<span class="hover-note">' + noteTxt + '</span><span class="cap">' + esc(g.name || 'Без названия') + '</span></button>';
     if (inTier) return tile;
     return '<div class="tile-wrap">' + tile + '<button class="del" data-action="del" data-id="' + esc(g.id) + '" aria-label="Удалить ' + esc(g.name) + '" title="Удалить игру">×</button>' +
@@ -754,10 +775,11 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     h += '<div class="scale-legend" aria-label="Шкала тиров">' + TIERS.map((T) => '<span data-t="' + T.t + '">' + legendText(T) + '</span>').join('') + '</div>';
 
     if (state.games.length) {
-      const arm = (k, a, b) => '<button class="btn small danger' + (ui.armed === k ? ' armed' : '') + '" data-action="' + k + '">' + (ui.armed === k ? b : a) + '</button>';
-      h += '<div class="footer-actions"><button class="btn small" data-action="all-back">Вернуть все игры в список</button>' +
-        (pool.length ? arm('clear-pool', 'Удалить игры без тира', 'Точно удалить ' + pool.length + '?') : '') +
-        arm('clear-all', 'Удалить все игры', 'Точно удалить все игры?') + '</div>';
+      const placedN = state.games.filter((g) => g.tier).length;
+      h += '<div class="footer-actions">' +
+        (placedN ? '<button class="btn small" data-action="ask" data-kind="all-back">Вернуть все игры в список</button>' : '') +
+        (pool.length ? '<button class="btn small danger" data-action="ask" data-kind="clear-pool">Удалить игры без тира</button>' : '') +
+        '<button class="btn small danger" data-action="ask" data-kind="clear-all">Удалить все игры</button></div>';
     }
     el.innerHTML = h;
   }
@@ -773,10 +795,21 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
   function field(id, label, val) {
     return '<div class="field"><label for="' + id + '">' + label + '</label><input class="text" id="' + id + '" inputmode="decimal" autocomplete="off" value="' + esc(val) + '"></div>';
   }
+  const hasRatings = (g) => !!(g.ratings && Object.keys(g.ratings).length);
+  function legacyText(g) {
+    return 'сумма ' + fmtShort(g.sum) + ', человек ' + fmtShort(g.n);
+  }
   function openSheet(id) {
     const g = gameById(id);
     if (!g) return;
-    ui.open = id; ui.steam = null; ui.armed = null; ui.naming = null;
+    ui.open = id; ui.steam = null; ui.armed = null; ui.naming = null; ui.detail = null; ui.preview = null;
+    const rows = state.people.map((p, i) => {
+      const v = g.ratings && Object.prototype.hasOwnProperty.call(g.ratings, p) ? fmtShort(g.ratings[p]) : '';
+      return '<label class="rate-row" for="r-' + i + '"><span class="rate-name">' + esc(p) + '</span>' +
+        '<input class="text rate-input" id="r-' + i + '" data-rate="' + i + '" inputmode="decimal" autocomplete="off" placeholder="—" value="' + esc(v) + '" aria-label="Оценка ' + esc(p) + '"></label>';
+    }).join('');
+    const legacy = !hasRatings(g) && g.sum != null && g.n != null
+      ? '<p class="hint">Раньше для этой игры были введены только общие числа (' + legacyText(g) + '), без имён. Впишите оценки друзей, и они заменят эти числа.</p>' : '';
     document.getElementById('sheet-root').innerHTML =
       '<div class="overlay" id="overlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">' +
         '<div class="sheet-head"><label class="img-pick" for="replace-input" title="Заменить картинку" id="pick">' + picHtml(g) + '<span class="swap">заменить</span></label>' +
@@ -784,63 +817,62 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
           '<div class="field"><label for="g-name" id="sheet-title">Название игры</label><input class="text" id="g-name" maxlength="60" value="' + esc(g.name) + '"></div>' +
           '<button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
         '<div class="formula-line">балл = (C · m + сумма оценок) / (C + n)</div>' +
-        '<div class="inputs">' +
-          field('f-C', 'C', fmtShort(g.C)) + field('f-m', 'm', fmtShort(g.m)) +
-          field('f-sum', 'Сумма оценок', g.sum == null ? '' : fmtShort(g.sum)) + field('f-n', 'n, человек', g.n == null ? '' : fmtShort(g.n)) +
-        '</div>' +
+        '<div class="cm-row">' + field('f-C', 'C', fmtShort(g.C)) + field('f-m', 'm', fmtShort(g.m)) + '</div>' +
+        legacy +
+        '<div class="field"><span class="lbl" style="font-size:12px;font-weight:600;color:var(--muted)">Оценки друзей (пусто — не играл)</span><div class="rate-list">' + rows + '</div></div>' +
         '<div class="result" id="f-result"></div>' +
         '<p class="err" id="f-err"></p>' +
         '<div class="sheet-actions"><button class="btn primary" id="f-go" data-action="determine">Определить</button>' +
           '<button class="btn danger" id="f-del" data-action="delete-open">Удалить игру</button></div>' +
-        '<p class="hint">Enter тоже определяет тир, Esc закрывает окно. Чтобы заменить картинку, нажмите на неё или вставьте новую через Ctrl+V.</p>' +
+        '<p class="hint">Tab — к следующему другу, Enter — определить тир, Esc — закрыть. Чтобы заменить картинку, нажмите на неё или вставьте новую через Ctrl+V.</p>' +
       '</div></div>';
     updatePreview();
-    const f = document.getElementById('f-sum');
-    f.focus(); f.select();
+    const inputs = Array.from(document.querySelectorAll('.rate-input'));
+    const first = inputs.find((x) => !x.value) || inputs[0];
+    if (first) { first.focus(); first.select(); }
   }
   function closeSheet() {
-    const id = ui.open;
-    ui.open = null; ui.steam = null; ui.armed = null; ui.preview = null; ui.naming = null;
+    const id = ui.open || ui.detail;
+    ui.open = null; ui.steam = null; ui.armed = null; ui.preview = null; ui.naming = null; ui.detail = null; ui.confirm = null;
     document.getElementById('sheet-root').innerHTML = '';
     renderBoard();
     if (id) { const t = app.querySelector('.tile[data-id="' + id + '"]'); if (t) t.focus(); }
   }
 
   function readForm() {
-    const val = (k) => parseNum(document.getElementById('f-' + k).value);
-    const v = { C: val('C'), m: val('m'), sum: val('sum'), n: val('n') };
-    const errs = [], bad = {};
-    const need = (k, ok, msg) => { if (!ok) { bad[k] = true; if (msg) errs.push(msg); } };
-    need('C', v.C !== null && !isNaN(v.C) && v.C >= 0, 'C — число не меньше 0.');
-    need('m', v.m !== null && !isNaN(v.m) && v.m >= 0 && v.m <= MAX_RATING, 'm — число от 0 до 10.');
-    if (v.n === null) need('n', false, '');
-    else need('n', !isNaN(v.n) && v.n >= 0 && Math.floor(v.n) === v.n, 'n — целое число людей, 0 или больше.');
-    if (v.sum === null) need('sum', false, '');
-    else need('sum', !isNaN(v.sum) && v.sum >= 0, 'Сумма оценок не может быть отрицательной.');
-    if (!bad.sum && !bad.n && v.sum !== null && v.n !== null && v.sum > MAX_RATING * v.n + 1e-9) {
-      bad.sum = true;
-      errs.push(v.n === 0 ? 'Если никто не оценил (n = 0), сумма должна быть 0.' : 'Сумма больше, чем ' + v.n + ' × 10 = ' + (v.n * MAX_RATING) + '. Проверьте сумму или n.');
-    }
-    if (!bad.C && !bad.n && v.n !== null && v.C + v.n === 0) { bad.C = true; errs.push('C и n не могут быть оба нулями: делить на 0 нельзя.'); }
-    const empty = v.sum === null || v.n === null;
-    return { v, errs, bad, ok: !errs.length && !empty, empty };
+    const C = parseNum(document.getElementById('f-C').value);
+    const m = parseNum(document.getElementById('f-m').value);
+    const errs = [], bad = {}, ratings = {};
+    let sum = 0, n = 0, badRating = false;
+    if (!(C !== null && !isNaN(C) && C >= 0)) { bad.C = true; errs.push('C — число не меньше 0.'); }
+    if (!(m !== null && !isNaN(m) && m >= 0 && m <= MAX_RATING)) { bad.m = true; errs.push('m — число от 0 до 10.'); }
+    state.people.forEach((p, i) => {
+      const el = document.getElementById('r-' + i);
+      const x = el ? parseNum(el.value) : null;
+      if (x === null) return;
+      if (isNaN(x) || x < 0 || x > MAX_RATING) { bad['r-' + i] = true; badRating = true; return; }
+      ratings[p] = x; sum += x; n++;
+    });
+    if (badRating) errs.push('Оценка — число от 0 до 10, например 7 или 7,5.');
+    const empty = n === 0;
+    return { v: { C, m, sum, n, ratings }, errs, bad, ok: !errs.length && !empty, empty };
   }
 
   function updatePreview() {
     const f = readForm();
-    ['C', 'm', 'sum', 'n'].forEach((k) => {
-      const el = document.getElementById('f-' + k);
-      el.classList.toggle('bad', !!f.bad[k] && el.value.trim() !== '');
-    });
+    const mark = (id, isBad) => { const el = document.getElementById(id); if (el) el.classList.toggle('bad', !!isBad && el.value.trim() !== ''); };
+    mark('f-C', f.bad.C); mark('f-m', f.bad.m);
+    state.people.forEach((p, i) => mark('r-' + i, f.bad['r-' + i]));
     const res = document.getElementById('f-result');
     document.getElementById('f-err').textContent = f.errs.join(' ');
     document.getElementById('f-go').disabled = !f.ok;
     if (!f.ok) {
-      res.innerHTML = '<span class="hint">' + (f.empty ? 'Введите сумму оценок и количество людей.' : 'Исправьте значения, и здесь появится балл.') + '</span>';
+      res.innerHTML = '<span class="hint">' + (f.empty && !f.errs.length ? 'Впишите оценку хотя бы одного друга.' : (f.empty ? 'Впишите оценку хотя бы одного друга и исправьте значения.' : 'Исправьте значения, и здесь появится балл.')) + '</span>';
       return;
     }
     const v = f.v, s = scoreOf(v.C, v.m, v.sum, v.n), t = tierFor(s);
-    res.innerHTML = '<span class="calc">(' + fmtShort(v.C) + ' · ' + fmtShort(v.m) + ' + ' + fmtShort(v.sum) + ') / (' + fmtShort(v.C) + ' + ' + fmtShort(v.n) + ') = <b>' + fmt(s) + '</b></span>' +
+    res.innerHTML = '<div style="display:grid;gap:4px"><span class="hint">Оценили ' + v.n + ' из ' + state.people.length + ' · сумма ' + fmtShort(v.sum) + '</span>' +
+      '<span class="calc">(' + fmtShort(v.C) + ' · ' + fmtShort(v.m) + ' + ' + fmtShort(v.sum) + ') / (' + fmtShort(v.C) + ' + ' + v.n + ') = <b>' + fmt(s) + '</b></span></div>' +
       '<span class="tier-pill" data-t="' + t + '">' + t + '</span>';
   }
 
@@ -851,7 +883,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     if (!f.ok) { updatePreview(); return; }
     const v = f.v;
     g.name = document.getElementById('g-name').value.trim() || g.name;
-    Object.assign(g, { C: v.C, m: v.m, sum: v.sum, n: v.n });
+    Object.assign(g, { C: v.C, m: v.m, sum: v.sum, n: v.n, ratings: v.ratings });
     g.score = scoreOf(v.C, v.m, v.sum, v.n);
     g.tier = tierFor(g.score);
     changed();
@@ -859,6 +891,39 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     ui.open = null;
     document.getElementById('sheet-root').innerHTML = '';
     renderBoard();
+  }
+
+  /* ---------- details sheet ---------- */
+  function openDetails(id) {
+    const g = gameById(id);
+    if (!g) return;
+    ui.detail = id; ui.open = null; ui.steam = null; ui.naming = null; ui.preview = null; ui.armed = null;
+    const names = state.people.slice();
+    Object.keys(g.ratings || {}).forEach((k) => { if (names.indexOf(k) < 0) names.push(k); });
+    let body;
+    if (hasRatings(g)) {
+      body = '<div class="detail-list">' + names.map((p) => {
+        const has = Object.prototype.hasOwnProperty.call(g.ratings, p);
+        return '<div class="detail-row' + (has ? '' : ' none') + '"><span class="rate-name">' + esc(p) + '</span>' + (has ? '<b>' + fmtShort(g.ratings[p]) + '</b>' : '<span>—</span>') + '</div>';
+      }).join('') + '</div>';
+    } else {
+      body = '<p class="hint">Оценки по друзьям для этой игры не записаны: её считали по общим числам (' + legacyText(g) + '). Нажмите «Изменить оценки», чтобы вписать, кто сколько поставил.</p>';
+    }
+    const calc = g.sum != null && g.n != null
+      ? '<div class="formula-line">(' + fmtShort(g.C) + ' · ' + fmtShort(g.m) + ' + ' + fmtShort(g.sum) + ') / (' + fmtShort(g.C) + ' + ' + fmtShort(g.n) + ') = ' + fmt(g.score) + '</div>' : '';
+    document.getElementById('sheet-root').innerHTML =
+      '<div class="overlay" id="overlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dt-title">' +
+        '<div class="sheet-head"><span class="img-box">' + picHtml(g) + '</span>' +
+          '<div style="display:grid;gap:6px;min-width:0"><h2 id="dt-title" style="overflow-wrap:anywhere">' + esc(g.name || 'Без названия') + '</h2>' +
+          '<div class="detail-score"><span class="tier-pill" data-t="' + g.tier + '">' + g.tier + '</span><span class="big">' + fmt(g.score) + '</span>' +
+          '<span class="hint">оценили ' + fmtShort(g.n) + ' из ' + state.people.length + '</span></div></div>' +
+          '<button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
+        body + calc +
+        '<div class="sheet-actions"><button class="btn" data-action="detail-edit" data-id="' + esc(g.id) + '">Изменить оценки</button>' +
+          '<button class="btn primary" data-action="unplace" data-id="' + esc(g.id) + '">Вернуть в список игр</button></div>' +
+      '</div></div>';
+    const btn = document.querySelector('[data-action="unplace"]');
+    if (btn) btn.focus();
   }
 
   async function replaceImage(file) {
@@ -1136,7 +1201,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
   }
   function renderPreview(status) {
     if (!ui.png) return;
-    ui.preview = true; ui.open = null; ui.steam = null;
+    ui.preview = true; ui.open = null; ui.steam = null; ui.detail = null; ui.confirm = null;
     document.getElementById('sheet-root').innerHTML =
       '<div class="overlay" id="overlay"><div class="sheet preview" role="dialog" aria-modal="true" aria-labelledby="pv-title">' +
         '<div class="sheet-head plain"><h2 id="pv-title">Тирлист утверждён</h2><button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
@@ -1164,24 +1229,82 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     }
   }
 
+  /* ---------- confirmations ---------- */
+  function confirmConfig(kind) {
+    const pool = state.games.filter((g) => !g.tier).length;
+    const placed = state.games.filter((g) => g.tier).length;
+    const all = state.games.length;
+    if (kind === 'all-back') return {
+      title: 'Вернуть все игры в список?',
+      text: 'Все игры из тиров (' + placed + ') вернутся в список без тира. Оценки друзей сохранятся, но разложить игры по тирам придётся заново.',
+      ok: 'Вернуть все', danger: false
+    };
+    if (kind === 'clear-pool') return {
+      title: 'Удалить игры без тира?',
+      text: 'Будут удалены все игры из списка без тира: ' + pool + '. Игры в тирах останутся. Отменить это нельзя.',
+      ok: 'Удалить ' + pool, danger: true
+    };
+    return {
+      title: 'Удалить все игры?',
+      text: 'Будут удалены все игры (' + all + ') вместе с оценками и обложками, и в тирах, и в списке. Отменить это нельзя.',
+      ok: 'Удалить всё', danger: true
+    };
+  }
+  function openConfirm(kind) {
+    ui.confirm = kind; ui.open = null; ui.steam = null; ui.naming = null; ui.detail = null; ui.preview = null; ui.armed = null;
+    const c = confirmConfig(kind);
+    document.getElementById('sheet-root').innerHTML =
+      '<div class="overlay" id="overlay"><div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="cf-title" aria-describedby="cf-text">' +
+        '<div class="sheet-head plain"><h2 id="cf-title">' + esc(c.title) + '</h2><button class="x" data-action="close" aria-label="Закрыть">×</button></div>' +
+        '<p id="cf-text" style="margin:0">' + esc(c.text) + '</p>' +
+        '<div class="sheet-actions"><button class="btn" id="cf-cancel" data-action="close">Отмена</button>' +
+          '<button class="btn ' + (c.danger ? 'danger armed' : 'primary') + '" data-action="confirm-yes">' + esc(c.ok) + '</button></div>' +
+      '</div></div>';
+    document.getElementById('cf-cancel').focus();
+  }
+  function runConfirmed() {
+    const kind = ui.confirm;
+    ui.confirm = null;
+    document.getElementById('sheet-root').innerHTML = '';
+    if (kind === 'all-back') {
+      const n = state.games.filter((g) => g.tier).length;
+      state.games.forEach((g) => { g.tier = null; });
+      changed(); setNote('Возвращено в список игр: ' + n + '.');
+    } else if (kind === 'clear-pool') {
+      const n = state.games.filter((g) => !g.tier).length;
+      state.games = state.games.filter((g) => g.tier);
+      changed(); setNote('Удалено игр без тира: ' + n + '.');
+    } else if (kind === 'clear-all') {
+      const n = state.games.length;
+      state.games = [];
+      changed(); setNote('Удалены все игры: ' + n + '.');
+    }
+    renderBoard();
+  }
+
   /* ---------- events ---------- */
   document.addEventListener('click', (e) => {
     if (e.target.id === 'overlay') { closeSheet(); return; }
     const b = e.target.closest('[data-action]');
     if (!b) return;
     const a = b.getAttribute('data-action'), id = b.getAttribute('data-id');
-    const armable = ['clear-all', 'clear-pool', 'delete-open'];
+    const armable = ['delete-open'];
     if (armable.indexOf(a) < 0 && ui.armed) {
       ui.armed = null;
-      if (!ui.open && !ui.steam && !ui.preview && !ui.naming) renderBoard();
+      if (!ui.open && !ui.steam && !ui.preview && !ui.naming && !ui.detail && !ui.confirm) renderBoard();
       else { const del = document.getElementById('f-del'); if (del) { del.classList.remove('armed'); del.textContent = 'Удалить игру'; } }
     }
     switch (a) {
       case 'save': saveToPage(); return;
       case 'open': openSheet(id); return;
+      case 'details': openDetails(id); return;
+      case 'detail-edit': openSheet(id); return;
       case 'unplace': {
         const g = gameById(id);
-        if (g) { g.tier = null; changed(); setNote(g.name + ' возвращена в список.'); renderBoard(); }
+        ui.detail = null;
+        document.getElementById('sheet-root').innerHTML = '';
+        if (g) { g.tier = null; changed(); setNote(g.name + ' возвращена в список.'); }
+        renderBoard();
         return;
       }
       case 'del': deleteGame(id); return;
@@ -1206,16 +1329,8 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
         if (ui.armed !== 'del') { ui.armed = 'del'; b.classList.add('armed'); b.textContent = 'Точно удалить?'; return; }
         { const gid = ui.open; ui.armed = null; ui.open = null; document.getElementById('sheet-root').innerHTML = ''; deleteGame(gid); }
         return;
-      case 'all-back':
-        state.games.forEach((g) => { g.tier = null; });
-        changed(); setNote('Все игры возвращены в список.'); renderBoard(); return;
-      case 'clear-pool':
-        if (ui.armed !== 'clear-pool') { ui.armed = 'clear-pool'; renderBoard(); return; }
-        { const n = state.games.filter((g) => !g.tier).length; ui.armed = null; state.games = state.games.filter((g) => g.tier); changed(); setNote('Удалено игр без тира: ' + n + '.'); renderBoard(); }
-        return;
-      case 'clear-all':
-        if (ui.armed !== 'clear-all') { ui.armed = 'clear-all'; renderBoard(); return; }
-        ui.armed = null; state.games = []; changed(); setNote(''); renderBoard(); return;
+      case 'ask': openConfirm(b.getAttribute('data-kind')); return;
+      case 'confirm-yes': runConfirmed(); return;
       case 'steam': openSteam(); return;
       case 'steam-all':
       case 'steam-none': {
@@ -1245,7 +1360,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     const t = e.target;
     if (t.getAttribute && t.getAttribute('data-field') === 'title') { state.title = t.value; changed(); return; }
     if (t.id === 'g-name') { const g = gameById(ui.open); if (g) { g.name = t.value; changed(); } return; }
-    if (/^f-(C|m|sum|n)$/.test(t.id)) { updatePreview(); return; }
+    if (/^f-(C|m)$/.test(t.id) || /^r-\d+$/.test(t.id)) { updatePreview(); return; }
     if (t.id === 'steam-url' && ui.steam) { ui.steam.url = t.value; updateSteamLinks(); return; }
     if (t.id === 'steam-paste' && ui.steam) {
       const found = parseSteam(t.value);
@@ -1281,7 +1396,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
   });
 
   document.addEventListener('keydown', (e) => {
-    if (!ui.open && !ui.steam && !ui.preview && !ui.naming) return;
+    if (!ui.open && !ui.steam && !ui.preview && !ui.naming && !ui.detail && !ui.confirm) return;
     if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
     if (ui.naming && e.key === 'Enter' && e.target.id === 'nm-input') { e.preventDefault(); applyName(); nextName(); return; }
     if (ui.open && e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.closest('.sheet')) { e.preventDefault(); determine(); }
@@ -1294,7 +1409,7 @@ textarea.text { min-height: 90px; resize: vertical; font-family: ui-monospace, "
     if (!files.length) return;
     e.preventDefault();
     if (ui.open) replaceImage(files[0]);
-    else if (!ui.steam && !ui.preview) addFiles(files);
+    else if (!ui.steam && !ui.preview && !ui.detail && !ui.confirm) addFiles(files);
   });
 
   document.addEventListener('error', (e) => {
